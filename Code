@@ -1,0 +1,221 @@
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error, r2_score
+from skopt import BayesSearchCV
+from skopt.space import Integer, Real, Categorical
+from xgboost import XGBRegressor
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.svm import SVR
+from sklearn.neighbors import KNeighborsRegressor
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.neural_network import MLPRegressor
+from interpret.glassbox import ExplainableBoostingRegressor
+import numpy as np
+
+# RMSE calculation function
+def rmse(y_true, y_pred):
+    return np.sqrt(mean_squared_error(y_true, y_pred))
+
+# Load data from Excel file
+file_path = 'Pb.xlsx' #Change the file name to build different target pollutant models
+data = pd.read_excel(file_path)
+
+# Split data into features (X) and target variable (y)
+y = data['Pb']  # Target variable already standardized
+X = data.drop(columns=['Pb'])
+
+# Split into training (90%) and testing sets (10%)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, random_state=42)
+
+# Split training set into training and validation (8:1) sets
+X_train_cv, X_val, y_train_cv, y_val = train_test_split(X_train, y_train, test_size=0.111, random_state=42)
+
+### Model 1: Random Forest Regressor with Bayes Search ###
+rf_search_space = {
+    'n_estimators': Integer(100, 500),
+    'max_depth': Integer(10, 50),
+    'min_samples_split': Integer(2, 10)
+}
+rf_bayes_search = BayesSearchCV(RandomForestRegressor(random_state=42), rf_search_space, cv=9, n_jobs=-1, scoring='r2', random_state=42)
+rf_bayes_search.fit(X_train_cv, y_train_cv)
+rf_best_model = rf_bayes_search.best_estimator_
+
+# Predictions
+y_train_pred_rf = rf_best_model.predict(X_train_cv)
+y_val_pred_rf = rf_best_model.predict(X_val)
+y_test_pred_rf = rf_best_model.predict(X_test)
+
+# Metrics
+rf_results = {
+    'R2_Train': r2_score(y_train_cv, y_train_pred_rf),
+    'R2_Val': r2_score(y_val, y_val_pred_rf),
+    'R2_Test': r2_score(y_test, y_test_pred_rf),
+    'RMSE_Train': rmse(y_train_cv, y_train_pred_rf),
+    'RMSE_Val': rmse(y_val, y_val_pred_rf),
+    'RMSE_Test': rmse(y_test, y_test_pred_rf),
+    'Best_Params': rf_bayes_search.best_params_
+}
+
+### Model 2: XGBoost Regressor with Bayes Search ###
+xgb_search_space = {
+    'n_estimators': Integer(50, 300),
+    'learning_rate': Real(0.01, 0.3),
+    'max_depth': Integer(3, 9)
+}
+xgb_bayes_search = BayesSearchCV(XGBRegressor(random_state=42), xgb_search_space, cv=9, n_jobs=-1, scoring='r2', random_state=42)
+xgb_bayes_search.fit(X_train_cv, y_train_cv)
+xgb_best_model = xgb_bayes_search.best_estimator_
+
+# Predictions
+y_train_pred_xgb = xgb_best_model.predict(X_train_cv)
+y_val_pred_xgb = xgb_best_model.predict(X_val)
+y_test_pred_xgb = xgb_best_model.predict(X_test)
+
+# Metrics
+xgb_results = {
+    'R2_Train': r2_score(y_train_cv, y_train_pred_xgb),
+    'R2_Val': r2_score(y_val, y_val_pred_xgb),
+    'R2_Test': r2_score(y_test, y_test_pred_xgb),
+    'RMSE_Train': rmse(y_train_cv, y_train_pred_xgb),
+    'RMSE_Val': rmse(y_val, y_val_pred_xgb),
+    'RMSE_Test': rmse(y_test, y_test_pred_xgb),
+    'Best_Params': xgb_bayes_search.best_params_
+}
+
+### Model 3: SVR with Bayes Search ###
+svr_search_space = {
+    'C': Real(0.1, 100, prior='log-uniform'),
+    'gamma': Categorical(['scale', 'auto']),
+    'kernel': Categorical(['linear', 'rbf'])
+}
+svr_bayes_search = BayesSearchCV(SVR(), svr_search_space, cv=9, n_jobs=-1, scoring='r2', random_state=42)
+svr_bayes_search.fit(X_train_cv, y_train_cv)
+svr_best_model = svr_bayes_search.best_estimator_
+
+# Predictions
+y_train_pred_svr = svr_best_model.predict(X_train_cv)
+y_val_pred_svr = svr_best_model.predict(X_val)
+y_test_pred_svr = svr_best_model.predict(X_test)
+
+# Metrics
+svr_results = {
+    'R2_Train': r2_score(y_train_cv, y_train_pred_svr),
+    'R2_Val': r2_score(y_val, y_val_pred_svr),
+    'R2_Test': r2_score(y_test, y_test_pred_svr),
+    'RMSE_Train': rmse(y_train_cv, y_train_pred_svr),
+    'RMSE_Val': rmse(y_val, y_val_pred_svr),
+    'RMSE_Test': rmse(y_test, y_test_pred_svr),
+    'Best_Params': svr_bayes_search.best_params_
+}
+
+### Model 4: KNeighbors Regressor with Bayes Search ###
+knn_search_space = {
+    'n_neighbors': Integer(3, 9),
+    'weights': Categorical(['uniform', 'distance'])
+}
+knn_bayes_search = BayesSearchCV(KNeighborsRegressor(), knn_search_space, cv=9, n_jobs=-1, scoring='r2', random_state=42)
+knn_bayes_search.fit(X_train_cv, y_train_cv)
+knn_best_model = knn_bayes_search.best_estimator_
+
+# Predictions
+y_train_pred_knn = knn_best_model.predict(X_train_cv)
+y_val_pred_knn = knn_best_model.predict(X_val)
+y_test_pred_knn = knn_best_model.predict(X_test)
+
+# Metrics
+knn_results = {
+    'R2_Train': r2_score(y_train_cv, y_train_pred_knn),
+    'R2_Val': r2_score(y_val, y_val_pred_knn),
+    'R2_Test': r2_score(y_test, y_test_pred_knn),
+    'RMSE_Train': rmse(y_train_cv, y_train_pred_knn),
+    'RMSE_Val': rmse(y_val, y_val_pred_knn),
+    'RMSE_Test': rmse(y_test, y_test_pred_knn),
+    'Best_Params': knn_bayes_search.best_params_
+}
+
+### Model 5: Decision Tree Regressor with Bayes Search ###
+dt_search_space = {
+    'max_depth': Integer(10, 90),
+    'min_samples_split': Integer(2, 10)
+}
+dt_bayes_search = BayesSearchCV(DecisionTreeRegressor(random_state=42), dt_search_space, cv=9, n_jobs=-1, scoring='r2', random_state=42)
+dt_bayes_search.fit(X_train_cv, y_train_cv)
+dt_best_model = dt_bayes_search.best_estimator_
+
+# Predictions
+y_train_pred_dt = dt_best_model.predict(X_train_cv)
+y_val_pred_dt = dt_best_model.predict(X_val)
+y_test_pred_dt = dt_best_model.predict(X_test)
+
+# Metrics
+dt_results = {
+    'R2_Train': r2_score(y_train_cv, y_train_pred_dt),
+    'R2_Val': r2_score(y_val, y_val_pred_dt),
+    'R2_Test': r2_score(y_test, y_test_pred_dt),
+    'RMSE_Train': rmse(y_train_cv, y_train_pred_dt),
+    'RMSE_Val': rmse(y_val, y_val_pred_dt),
+    'RMSE_Test': rmse(y_test, y_test_pred_dt),
+    'Best_Params': dt_bayes_search.best_params_
+}
+
+### Model 6: MLP Regressor with Grid Search ###
+param_grid_mlp = {
+    'hidden_layer_sizes': [(50,), (100,), (50, 50), (100, 50)],
+    'activation': ['relu', 'tanh'],
+    'solver': ['adam', 'lbfgs'],
+    'learning_rate': ['constant', 'adaptive']
+}
+mlp_grid_search = GridSearchCV(MLPRegressor(random_state=42), param_grid_mlp, cv=9, n_jobs=-1, scoring='r2')
+mlp_grid_search.fit(X_train_cv, y_train_cv)
+mlp_best_model = mlp_grid_search.best_estimator_
+
+# Predictions
+y_train_pred_mlp = mlp_best_model.predict(X_train_cv)
+y_val_pred_mlp = mlp_best_model.predict(X_val)
+y_test_pred_mlp = mlp_best_model.predict(X_test)
+
+# Metrics
+mlp_results = {
+    'R2_Train': r2_score(y_train_cv, y_train_pred_mlp),
+    'R2_Val': r2_score(y_val, y_val_pred_mlp),
+    'R2_Test': r2_score(y_test, y_test_pred_mlp),
+    'RMSE_Train': rmse(y_train_cv, y_train_pred_mlp),
+    'RMSE_Val': rmse(y_val, y_val_pred_mlp),
+    'RMSE_Test': rmse(y_test, y_test_pred_mlp),
+    'Best_Params': mlp_grid_search.best_params_
+}
+
+### Model 7: Explainable Boosting Machine (EBM) with Bayes Search ###
+ebm_search_space = {
+    'max_bins': Integer(64, 256),
+    'max_leaves': Integer(3, 7),
+    'learning_rate': Real(0.01, 0.1)
+}
+ebm_bayes_search = BayesSearchCV(ExplainableBoostingRegressor(random_state=42), ebm_search_space, cv=9, n_jobs=-1, scoring='r2', random_state=42)
+ebm_bayes_search.fit(X_train_cv, y_train_cv)
+ebm_best_model = ebm_bayes_search.best_estimator_
+
+# Predictions
+y_train_pred_ebm = ebm_best_model.predict(X_train_cv)
+y_val_pred_ebm = ebm_best_model.predict(X_val)
+y_test_pred_ebm = ebm_best_model.predict(X_test)
+
+# Metrics
+ebm_results = {
+    'R2_Train': r2_score(y_train_cv, y_train_pred_ebm),
+    'R2_Val': r2_score(y_val, y_val_pred_ebm),
+    'R2_Test': r2_score(y_test, y_test_pred_ebm),
+    'RMSE_Train': rmse(y_train_cv, y_train_pred_ebm),
+    'RMSE_Val': rmse(y_val, y_val_pred_ebm),
+    'RMSE_Test': rmse(y_test, y_test_pred_ebm),
+    'Best_Params': ebm_bayes_search.best_params_
+}
+
+# Print the results for all models
+print("RandomForest Results:", rf_results)
+print("XGBRegressor Results:", xgb_results)
+print("SVR Results:", svr_results)
+print("KNeighborsRegressor Results:", knn_results)
+print("DecisionTreeRegressor Results:", dt_results)
+print("MLPRegressor Results:", mlp_results)
+print("EBM Results:", ebm_results)
